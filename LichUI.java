@@ -66,7 +66,7 @@ public class LichUI extends JPanel {
         h.setBackground(BG_WHITE);
         h.setBorder(new CompoundBorder(
             new MatteBorder(0,0,1,0,BORDER_CLR),
-            new EmptyBorder(16,24,14,24)
+            new EmptyBorder(12,20,10,20) 
         ));
         JPanel left = new JPanel();
         left.setOpaque(false);
@@ -89,18 +89,22 @@ public class LichUI extends JPanel {
 
     private JPanel buildCalPanel() {
         JPanel p = new JPanel(new BorderLayout());
+        p.setBorder(new CompoundBorder(
+        	    new EmptyBorder(12,12,12,6),
+        	    new LineBorder(BORDER_CLR, 1, true)
+        	));
         p.setBackground(BG_WHITE);
         p.setBorder(new CompoundBorder(
             new MatteBorder(0,0,0,1,BORDER_CLR),
-            new EmptyBorder(16,16,16,16)
+            new EmptyBorder(12,12,12,12)
         ));
 
         JPanel nav = new JPanel(new BorderLayout());
         nav.setOpaque(false);
-        nav.setBorder(new EmptyBorder(0,0,12,0));
+        nav.setBorder(new EmptyBorder(0,0,8,0));
 
-        btnThangTruoc = navBtn("◀");
-        btnThangSau   = navBtn("▶");
+        btnThangTruoc = navBtn("←");
+        btnThangSau   = navBtn("→");
         lblThangNam   = new JLabel(thangNamStr(), SwingConstants.CENTER);
         lblThangNam.setFont(F_BOLD); lblThangNam.setForeground(TEXT_DARK);
 
@@ -120,13 +124,20 @@ public class LichUI extends JPanel {
             l.setFont(F_CAL_HDR); l.setForeground(TEXT_LIGHT);
             weekRow.add(l);
         }
-        weekRow.setBorder(new EmptyBorder(0,0,8,0));
-        p.add(weekRow, BorderLayout.CENTER);
+        weekRow.setBorder(new EmptyBorder(0,0,4,0));
+        JPanel calContainer = new JPanel();
+        calContainer.setLayout(new BorderLayout(0,4)); // khoảng cách nhỏ thôi
+        calContainer.setOpaque(false);
 
-        calGrid = new JPanel(new GridLayout(6,7,4,4));
+        calContainer.add(weekRow, BorderLayout.NORTH);
+
+        calGrid = new JPanel(new GridLayout(6,7,3,3));
         calGrid.setOpaque(false);
         fillCalGrid();
-        p.add(calGrid, BorderLayout.SOUTH);
+
+        calContainer.add(calGrid, BorderLayout.CENTER);
+
+        p.add(calContainer, BorderLayout.CENTER);
         return p;
     }
 
@@ -160,8 +171,8 @@ public class LichUI extends JPanel {
                     Graphics2D g2=(Graphics2D)g.create();
                     g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON);
                     if (isToday)    g2.setColor(TODAY_BG);
-                    else if (isSel) g2.setColor(CAL_SEL);
-                    else if (hov)   g2.setColor(CAL_HOV);
+                    else if (isSel) g2.setColor(new Color(180, 205, 255));
+                    else if (hov) g2.setColor(new Color(240, 245, 255));
                     else            g2.setColor(BG_WHITE);
                     g2.fillRoundRect(0,0,getWidth(),getHeight(),8,8);
                     g2.dispose(); super.paintComponent(g);
@@ -196,7 +207,7 @@ public class LichUI extends JPanel {
 
         JLabel lbl = new JLabel("SỰ KIỆN SẮP TỚI");
         lbl.setFont(F_LABEL); lbl.setForeground(TEXT_LIGHT);
-        lbl.setBorder(new EmptyBorder(14,20,8,20));
+        lbl.setBorder(new EmptyBorder(10,16,6,16));
         p.add(lbl, BorderLayout.NORTH);
 
         eventListPanel = new JPanel();
@@ -274,9 +285,9 @@ public class LichUI extends JPanel {
         empty.setLayout(new BoxLayout(empty, BoxLayout.Y_AXIS));
         empty.setAlignmentX(Component.LEFT_ALIGNMENT);
         empty.add(Box.createVerticalStrut(60));
-
+        empty.setAlignmentY(Component.CENTER_ALIGNMENT);
         JLabel icon = new JLabel("📅");
-        icon.setFont(new Font("Arial", Font.PLAIN, 48));
+        icon.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 42));
         icon.setAlignmentX(Component.CENTER_ALIGNMENT);
         empty.add(icon);
 
@@ -314,8 +325,10 @@ public class LichUI extends JPanel {
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2=(Graphics2D)g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(0,0,0,15)); // shadow nhẹ
+                g2.fillRoundRect(2,4,getWidth()-4,getHeight()-4,12,12);
                 g2.setColor(BG_WHITE);
-                g2.fillRoundRect(0,0,getWidth(),getHeight(),10,10);
+                g2.fillRoundRect(0,0,getWidth(),getHeight(),12,12);
                 g2.setColor(BORDER_CLR);
                 g2.setStroke(new BasicStroke(1f));
                 g2.drawRoundRect(0,0,getWidth()-1,getHeight()-1,10,10);
