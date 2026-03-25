@@ -12,10 +12,9 @@ import javax.swing.border.*;
  * LichController – xử lý toàn bộ logic màn hình Lịch.
  *
  * Tích hợp vào ManHinhChinh:
- *   Thay:  pnlCenter.add(new LichUI(), "LICH");
- *   Bằng:  LichUI lichUI = new LichUI();
- *          new LichController(lichUI, nguoiDung);
- *          pnlCenter.add(lichUI, "LICH");
+ *   LichUI lichUI = new LichUI();
+ *   new LichController(lichUI, nguoiDung);
+ *   pnlCenter.add(lichUI, "LICH");
  */
 public class LichController {
 
@@ -61,6 +60,7 @@ public class LichController {
             SuKien sk = dialog.getSuKien();
             suKienList.add(sk);
             hienThiThanhCong(sk);
+            view.refreshEventList(suKienList);  // ← CẬP NHẬT UI
         }
     }
 
@@ -71,13 +71,14 @@ public class LichController {
             + "   Tiêu đề   : " + sk.tieuDe       + "\n"
             + "   Ngày      : " + sk.ngay          + "\n"
             + "   Thời gian : " + sk.gioBatDau + " – " + sk.gioKetThuc + "\n"
-            + "   Loại      : " + sk.loai,
+            + "   Loại      : " + sk.loai + "\n"
+            + "   Tạo bởi   : " + (sk.isPersonal ? "Bạn" : sk.tenNhom),
             "Thêm sự kiện thành công",
             JOptionPane.INFORMATION_MESSAGE
         );
     }
 
-    /** Trả về danh sách sự kiện (tầng khác dùng nếu cần). */
+    /** Trả về danh sách sự kiện */
     public List<SuKien> getSuKienList() {
         return Collections.unmodifiableList(suKienList);
     }
@@ -92,15 +93,20 @@ public class LichController {
         public final String gioKetThuc;
         public final String loai;
         public final Color  mauSac;
+        public final boolean isPersonal;    // ← PHÂN BIỆT CÁ NHÂN vs NHÓM
+        public final String tenNhom;        // ← TÊN NHÓM (nếu isPersonal=false)
 
         public SuKien(String tieuDe, String ngay, String gioBatDau,
-                      String gioKetThuc, String loai, Color mauSac) {
+                      String gioKetThuc, String loai, Color mauSac,
+                      boolean isPersonal, String tenNhom) {
             this.tieuDe     = tieuDe;
             this.ngay       = ngay;
             this.gioBatDau  = gioBatDau;
             this.gioKetThuc = gioKetThuc;
             this.loai       = loai;
             this.mauSac     = mauSac;
+            this.isPersonal = isPersonal;
+            this.tenNhom    = tenNhom;
         }
     }
 
@@ -119,6 +125,9 @@ public class LichController {
         private JTextField        txtGioKT;
         private JComboBox<String> cmbLoai;
         private JComboBox<String> cmbMau;
+        private JRadioButton      radPersonal;
+        private JRadioButton      radGroup;
+        private JComboBox<String> cmbNhom;
 
         private static final String[] MAU_TEN = {
             "Xanh dương", "Xanh lá", "Vàng", "Đỏ", "Tím"
@@ -130,8 +139,8 @@ public class LichController {
 
         ThemSuKienDialog(Frame owner) {
             super(owner, "Thêm sự kiện mới", true);
-            setSize(460, 450);
-            setMinimumSize(new Dimension(420, 400));
+            setSize(480, 500);
+            setMinimumSize(new Dimension(440, 450));
             setResizable(false);
             setLocationRelativeTo(owner);
 
@@ -143,16 +152,14 @@ public class LichController {
             root.add(buildForm(),   BorderLayout.CENTER);
             root.add(buildBtnBar(), BorderLayout.SOUTH);
 
-            // Enter trên txtNgay → txtGioBD → txtGioKT
+            // Enter navigation
             txtNgay.addActionListener(e -> txtGioBD.requestFocus());
             txtGioBD.addActionListener(e -> txtGioKT.requestFocus());
             txtGioKT.addActionListener(e -> xuLyThem());
 
-            // Focus ban đầu
             SwingUtilities.invokeLater(() -> txtTieuDe.requestFocusInWindow());
         }
 
-        // ── Header ────────────────────────────────────────────
         private JPanel buildHeader() {
             JPanel h = new JPanel(new BorderLayout());
             h.setBackground(BG_WHITE);
@@ -172,7 +179,6 @@ public class LichController {
             return h;
         }
 
-        // ── Form ──────────────────────────────────────────────
         private JScrollPane buildForm() {
             JPanel form = new JPanel();
             form.setOpaque(false);
@@ -228,37 +234,64 @@ public class LichController {
             form.add(timeRow);
             form.add(Box.createVerticalStrut(16));
 
-            // Loại / Màu – 2 cột
-            JPanel optRow = new JPanel(new GridLayout(1, 2, 14, 0));
-            optRow.setOpaque(false);
-            optRow.setAlignmentX(Component.LEFT_ALIGNMENT);
-            optRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 66));
-
-            JPanel loaiCol = new JPanel();
-            loaiCol.setOpaque(false);
-            loaiCol.setLayout(new BoxLayout(loaiCol, BoxLayout.Y_AXIS));
-            loaiCol.add(secLabel("LOẠI SỰ KIỆN"));
-            loaiCol.add(Box.createVerticalStrut(6));
+            // Loại sự kiện
+            form.add(secLabel("LOẠI SỰ KIỆN"));
+            form.add(Box.createVerticalStrut(6));
             cmbLoai = new JComboBox<>(new String[]{"Cá nhân", "Nhóm học", "Công việc", "Thi cử", "Khác"});
             cmbLoai.setFont(F_BODY);
             cmbLoai.setAlignmentX(Component.LEFT_ALIGNMENT);
             cmbLoai.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
-            loaiCol.add(cmbLoai);
+            form.add(cmbLoai);
+            form.add(Box.createVerticalStrut(16));
 
-            JPanel mauCol = new JPanel();
-            mauCol.setOpaque(false);
-            mauCol.setLayout(new BoxLayout(mauCol, BoxLayout.Y_AXIS));
-            mauCol.add(secLabel("MÀU SẮC"));
-            mauCol.add(Box.createVerticalStrut(6));
+            // Phân loại: Cá nhân vs Nhóm
+            form.add(secLabel("CÓ PHẢI LỊC CÁ NHÂN KHÔNG?"));
+            form.add(Box.createVerticalStrut(6));
+            JPanel typePanel = new JPanel();
+            typePanel.setOpaque(false);
+            typePanel.setLayout(new BoxLayout(typePanel, BoxLayout.X_AXIS));
+            typePanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+            typePanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+
+            ButtonGroup typeGroup = new ButtonGroup();
+            radPersonal = new JRadioButton("Cá nhân");
+            radGroup = new JRadioButton("Nhóm");
+            radPersonal.setSelected(true);
+            radPersonal.setOpaque(false); radPersonal.setFont(F_BODY);
+            radGroup.setOpaque(false); radGroup.setFont(F_BODY);
+            typeGroup.add(radPersonal);
+            typeGroup.add(radGroup);
+
+            typePanel.add(radPersonal);
+            typePanel.add(Box.createHorizontalStrut(20));
+            typePanel.add(radGroup);
+            typePanel.add(Box.createHorizontalGlue());
+            form.add(typePanel);
+            form.add(Box.createVerticalStrut(16));
+
+            // Chọn nhóm (nếu là nhóm)
+            form.add(secLabel("CHỌN NHÓM"));
+            form.add(Box.createVerticalStrut(6));
+            cmbNhom = new JComboBox<>(new String[]{"Nhóm 1", "Nhóm 2", "Nhóm 3", "Nhóm 4"});
+            cmbNhom.setFont(F_BODY);
+            cmbNhom.setAlignmentX(Component.LEFT_ALIGNMENT);
+            cmbNhom.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+            cmbNhom.setEnabled(false);  // ← Tắt khi personal được chọn
+            form.add(cmbNhom);
+            form.add(Box.createVerticalStrut(16));
+
+            // Toggle group combobox
+            radPersonal.addActionListener(e -> cmbNhom.setEnabled(false));
+            radGroup.addActionListener(e -> cmbNhom.setEnabled(true));
+
+            // Màu sắc
+            form.add(secLabel("MÀU SẮC"));
+            form.add(Box.createVerticalStrut(6));
             cmbMau = new JComboBox<>(MAU_TEN);
             cmbMau.setFont(F_BODY);
             cmbMau.setAlignmentX(Component.LEFT_ALIGNMENT);
             cmbMau.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
-            mauCol.add(cmbMau);
-
-            optRow.add(loaiCol);
-            optRow.add(mauCol);
-            form.add(optRow);
+            form.add(cmbMau);
 
             JScrollPane scroll = new JScrollPane(form);
             scroll.setBorder(null);
@@ -266,7 +299,6 @@ public class LichController {
             return scroll;
         }
 
-        // ── Button bar ────────────────────────────────────────
         private JPanel buildBtnBar() {
             JPanel bar = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 12));
             bar.setBackground(BG_WHITE);
@@ -283,7 +315,6 @@ public class LichController {
             return bar;
         }
 
-        // ── Xử lý thêm (validation) ───────────────────────────
         private void xuLyThem() {
             String tieuDe = txtTieuDe.getText().trim();
             String ngay   = txtNgay.getText().trim();
@@ -299,7 +330,7 @@ public class LichController {
                 warn("Tiêu đề tối đa 100 ký tự."); return;
             }
 
-            // Validate ngày (DD/MM/YYYY)
+            // Validate ngày
             if (!ngay.matches("\\d{2}/\\d{2}/\\d{4}")) {
                 warn("Ngày không đúng định dạng.\nVui lòng nhập theo dạng DD/MM/YYYY.");
                 txtNgay.requestFocus(); return;
@@ -316,7 +347,7 @@ public class LichController {
                 txtNgay.requestFocus(); return;
             }
 
-            // Validate giờ bắt đầu (HH:MM)
+            // Validate giờ bắt đầu
             if (!gioBD.matches("\\d{2}:\\d{2}")) {
                 warn("Giờ bắt đầu không đúng định dạng.\nVui lòng nhập theo dạng HH:MM.");
                 txtGioBD.requestFocus(); return;
@@ -332,9 +363,12 @@ public class LichController {
             }
 
             Color mau = MAU_CLR[cmbMau.getSelectedIndex()];
+            boolean isPersonal = radPersonal.isSelected();
+            String tenNhom = isPersonal ? "Cá nhân" : (String) cmbNhom.getSelectedItem();
+
             result    = new SuKien(
                 tieuDe, ngay, gioBD, gioKT,
-                (String) cmbLoai.getSelectedItem(), mau
+                (String) cmbLoai.getSelectedItem(), mau, isPersonal, tenNhom
             );
             confirmed = true;
             dispose();
@@ -347,7 +381,6 @@ public class LichController {
         boolean isConfirmed() { return confirmed; }
         SuKien  getSuKien()   { return result;    }
 
-        // ── Widget helpers ─────────────────────────────────────
         private JLabel secLabel(String t) {
             JLabel l = new JLabel(t);
             l.setFont(F_LABEL); l.setForeground(TEXT_LIGHT);
