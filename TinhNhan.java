@@ -1,105 +1,87 @@
 package BaoCaoCuoiKi;
 
-import java.sql.*;
+import java.io.Serializable;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.time.format.DateTimeFormatter;
 
-/**
- * DAO – thao tác bảng tin_nhan.
- *
- * DDL cần chạy trước:
- * ─────────────────────────────────────────────────────────
- * CREATE TABLE IF NOT EXISTS tin_nhan (
- *     id            INT AUTO_INCREMENT PRIMARY KEY,
- *     nhom_id       INT      NOT NULL,
- *     nguoi_gui_id  INT      NOT NULL,
- *     ten_nguoi_gui VARCHAR(100),
- *     noi_dung      TEXT     NOT NULL,
- *     thoi_gian     DATETIME DEFAULT CURRENT_TIMESTAMP,
- *     FOREIGN KEY (nhom_id)      REFERENCES nhom(id)       ON DELETE CASCADE,
- *     FOREIGN KEY (nguoi_gui_id) REFERENCES nguoi_dung(id) ON DELETE CASCADE,
- *     INDEX idx_nhom (nhom_id, thoi_gian)
- * );
- * ─────────────────────────────────────────────────────────
- */
-public class TinNhanDAO {
+public class TinNhan implements Serializable {
+    private static final long serialVersionUID = 1L;
 
-    /**
-     * Lưu tin nhắn mới. Trả về id sinh ra, hoặc -1 nếu lỗi.
-     */
-    public int guiTinNhan(TinNhan tin) throws SQLException {
-        String sql = "INSERT INTO tin_nhan (nhom_id, nguoi_gui_id, ten_nguoi_gui, noi_dung, thoi_gian) " +
-                     "VALUES (?, ?, ?, ?, ?)";
-        try (PreparedStatement ps = DatabaseConnection.getConnection()
-                .prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            ps.setInt(1, tin.getNhomId());
-            ps.setInt(2, tin.getNguoiGuiId());
-            ps.setString(3, tin.getTenNguoiGui());
-            ps.setString(4, tin.getNoiDung());
-            ps.setObject(5, tin.getThoiGian());
-            ps.executeUpdate();
-            ResultSet rs = ps.getGeneratedKeys();
-            return rs.next() ? rs.getInt(1) : -1;
+    private int nhomId;
+    private int nguoiGuiId;
+    private String tenNguoiGui;
+    private String noiDung;
+    private LocalDateTime thoiGian;
+
+    // ── Constructor (client gửi, chưa có time) ──
+    public TinNhan(int nhomId, int nguoiGuiId, String tenNguoiGui, String noiDung) {
+        this.nhomId = nhomId;
+        this.nguoiGuiId = nguoiGuiId;
+        this.tenNguoiGui = tenNguoiGui;
+        this.noiDung = noiDung;
+        this.thoiGian = LocalDateTime.now();
+    }
+
+    // ── Constructor (từ DB, đã có time) ──
+    public TinNhan(int nhomId, int nguoiGuiId, String tenNguoiGui, String noiDung, LocalDateTime thoiGian) {
+        this.nhomId = nhomId;
+        this.nguoiGuiId = nguoiGuiId;
+        this.tenNguoiGui = tenNguoiGui;
+        this.noiDung = noiDung;
+        this.thoiGian = thoiGian;
+    }
+
+    // ── Getters ──
+    public int getNhomId() {
+        return nhomId;
+    }
+
+    public int getNguoiGuiId() {
+        return nguoiGuiId;
+    }
+
+    public String getTenNguoiGui() {
+        return tenNguoiGui;
+    }
+
+    public String getNoiDung() {
+        return noiDung;
+    }
+
+    public LocalDateTime getThoiGian() {
+        return thoiGian;
+    }
+
+    // ✅ Phương thức format thời gian cho hiển thị
+    public String getThoiGianStr() {
+        if (thoiGian == null) {
+            return "Vừa xong";
+        }
+        return thoiGian.format(DateTimeFormatter.ofPattern("HH:mm"));
+    }
+
+    // ✅ Setter cho server/controller set thời gian
+    public void setThoiGian(LocalDateTime thoiGian) {
+        this.thoiGian = thoiGian;
+    }
+
+    public void setThoiGian(String thoiGianStr) {
+        try {
+            this.thoiGian = LocalDateTime.parse(thoiGianStr, 
+                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        } catch (Exception e) {
+            this.thoiGian = LocalDateTime.now();
         }
     }
 
-    /**
-     * 50 tin nhắn gần nhất của nhóm, sắp xếp cũ → mới.
-     */
-    public List<TinNhan> layTinNhanNhom(int nhomId) throws SQLException {
-        String sql =
-            "SELECT t.nhom_id, t.nguoi_gui_id, t.ten_nguoi_gui, " +
-            "       t.noi_dung, t.thoi_gian " +
-            "FROM   tin_nhan t " +
-            "WHERE  t.nhom_id = ? " +
-            "ORDER  BY t.thoi_gian ASC LIMIT 50";
-
-        List<TinNhan> list = new ArrayList<>();
-        try (PreparedStatement ps = DatabaseConnection.getConnection().prepareStatement(sql)) {
-            ps.setInt(1, nhomId);
-            ResultSet rs = ps.executeQuery();
-            while (rs.next()) {
-                list.add(map(rs));
-            }
-        }
-        return list;
-    }
-
-    /**
-     * Tin nhắn mới hơn lastId – dùng khi polling cập nhật real-time.
-     */
-    public List<TinNhan> layTinMoi(int nhomId, int lastId) throws SQLException {
-        String sql =
-            "SELECT t.nhom_id, t.nguoi_gui_id, t.ten_nguoi_gui, " +
-            "       t.noi_dung, t.thoi_gian " +
-            "FROM   tin_nhan t " +
-            "WHERE  t.nhom_id = ? AND t.id > ? " +
-            "ORDER  BY t.thoi_gian ASC";
-
-        List<TinNhan> list = new ArrayList<>();
-        try (PreparedStatement ps = DatabaseConnection.getConnection().prepareStatement(sql)) {
-            ps.setInt(1, nhomId);
-            ps.setInt(2, lastId);
-            ResultSet rs = ps.executeQuery();
-            while (rs.next()) {
-                list.add(map(rs));
-            }
-        }
-        return list;
-    }
-
-    // ── Helper map ResultSet → TinNhan ────────────────────────
-    private TinNhan map(ResultSet rs) throws SQLException {
-        int nhomId = rs.getInt("nhom_id");
-        int nguoiGuiId = rs.getInt("nguoi_gui_id");
-        String tenNguoiGui = rs.getString("ten_nguoi_gui");
-        String noiDung = rs.getString("noi_dung");
-        
-        Timestamp ts = rs.getTimestamp("thoi_gian");
-        LocalDateTime ldt = ts != null ? ts.toLocalDateTime() : LocalDateTime.now();
-        
-        // ✅ Gọi constructor đúng với 5 tham số
-        return new TinNhan(nhomId, nguoiGuiId, tenNguoiGui, noiDung, ldt);
+    @Override
+    public String toString() {
+        return "TinNhan{" +
+                "nhomId=" + nhomId +
+                ", nguoiGuiId=" + nguoiGuiId +
+                ", tenNguoiGui='" + tenNguoiGui + '\'' +
+                ", noiDung='" + noiDung + '\'' +
+                ", thoiGian=" + thoiGian +
+                '}';
     }
 }
