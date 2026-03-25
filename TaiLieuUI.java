@@ -119,17 +119,15 @@ public class TaiLieuUI extends JPanel {
         JPanel grid = new JPanel(new GridLayout(0, 4, 12, 12));
         grid.setOpaque(false);
 
-        String[] anhs = {"📷 Ảnh họp nhóm.jpg","📷 Thuyết trình.png","🎬 Hướng dẫn.mp4","📷 Chụp màn hình.png","🎬 Demo dự án.mp4","📷 Avatar nhóm.jpg"};
-        for (String a : anhs) {
-            grid.add(buildMediaCard(a));
-        }
 
         JScrollPane scroll = new JScrollPane(grid);
-        scroll.setOpaque(false); scroll.getViewport().setOpaque(false); scroll.setBorder(null);
+        scroll.setOpaque(false);
+        scroll.getViewport().setOpaque(false);
+        scroll.setBorder(null);
+
         p.add(scroll, BorderLayout.CENTER);
         return p;
     }
-
     private JPanel buildMediaCard(String name) {
         JPanel card = new JPanel(new BorderLayout(0,8)) {
             boolean hov;
@@ -187,22 +185,12 @@ public class TaiLieuUI extends JPanel {
         list.setOpaque(false);
         list.setLayout(new BoxLayout(list, BoxLayout.Y_AXIS));
 
-        Object[][] files = {
-            {"📄", "Đề cương ôn thi HK2.pdf",    "PDF",  "2.4 MB",  "01/06/2025", "Nguyễn A"},
-            {"📊", "Slide bài giảng.pptx",         "PPTX", "8.1 MB",  "28/05/2025", "Trần B"},
-            {"📈", "Bảng điểm nhóm.xlsx",          "XLSX", "512 KB",  "20/05/2025", "Lê C"},
-            {"📝", "Tài liệu tham khảo.docx",      "DOCX", "1.2 MB",  "15/05/2025", "Nguyễn A"},
-            {"🗜", "Source code dự án.zip",         "ZIP",  "24.5 MB", "10/05/2025", "Trần B"},
-        };
-
-        for (Object[] f : files) {
-            list.add(buildFileRow(f[0].toString(), f[1].toString(), f[2].toString(),
-                                  f[3].toString(), f[4].toString(), f[5].toString()));
-            list.add(Box.createVerticalStrut(8));
-        }
 
         JScrollPane scroll = new JScrollPane(list);
-        scroll.setOpaque(false); scroll.getViewport().setOpaque(false); scroll.setBorder(null);
+        scroll.setOpaque(false);
+        scroll.getViewport().setOpaque(false);
+        scroll.setBorder(null);
+
         p.add(scroll, BorderLayout.CENTER);
         return p;
     }
@@ -262,24 +250,15 @@ public class TaiLieuUI extends JPanel {
         list.setOpaque(false);
         list.setLayout(new BoxLayout(list, BoxLayout.Y_AXIS));
 
-        Object[][] links = {
-            {"Tài liệu Google Drive nhóm",   "drive.google.com/...",  "Nguyễn A", "01/06/2025"},
-            {"Slide thuyết trình online",     "slides.google.com/...", "Trần B",   "28/05/2025"},
-            {"Video hướng dẫn YouTube",       "youtube.com/watch?...", "Lê C",     "20/05/2025"},
-            {"Figma thiết kế giao diện",      "figma.com/file/...",    "Nguyễn A", "15/05/2025"},
-        };
-
-        for (Object[] l : links) {
-            list.add(buildLinkRow(l[0].toString(), l[1].toString(), l[2].toString(), l[3].toString()));
-            list.add(Box.createVerticalStrut(8));
-        }
 
         JScrollPane scroll = new JScrollPane(list);
-        scroll.setOpaque(false); scroll.getViewport().setOpaque(false); scroll.setBorder(null);
+        scroll.setOpaque(false);
+        scroll.getViewport().setOpaque(false);
+        scroll.setBorder(null);
+
         p.add(scroll, BorderLayout.CENTER);
         return p;
     }
-
     private JPanel buildLinkRow(String title, String url, String uploader, String date) {
         JPanel card = new JPanel(new BorderLayout(12,0)) {
             boolean hov;
