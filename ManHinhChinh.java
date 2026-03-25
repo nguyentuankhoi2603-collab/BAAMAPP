@@ -1,3 +1,4 @@
+
 package BaoCaoCuoiKi;
 
 import java.awt.*;
@@ -243,8 +244,8 @@ public class ManHinhChinh extends JFrame {
         pnlCenter.add(lichUI, "LICH");
 
         TaiLieuUI taiLieuUI = new TaiLieuUI();
-        new TaiLieuController(taiLieuUI);
-        pnlCenter.add(taiLieuUI, "TAI_LIEU");
+        new TaiLieuController(taiLieuUI, "data");
+        pnlCenter.add(taiLieuUI, "TAI_LIEU");  
         pnlCenter.add(buildQuanLyTKPanel(),  "QUAN_LY_TK");
 
         main.add(pnlCenter, BorderLayout.CENTER);
