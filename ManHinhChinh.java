@@ -11,7 +11,7 @@ import javax.swing.border.*;
  * ManHinhChinh – Màn hình chính sau đăng nhập.
  *
  * Điều hướng nội bộ (CardLayout):
- *   BANG_TIN   · NHOM_CHAT · LICH · TAI_LIEU · QUAN_LY_TK
+ *   BANG_TIN · NHOM_CHAT · LICH · TAI_LIEU · QUAN_LY_TK
  *
  * Mở dialog:
  *   TaoNhomUI         (RightPanel → "Tạo nhóm")
@@ -47,15 +47,35 @@ public class ManHinhChinh extends JFrame {
 
     // ── State ─────────────────────────────────────────────────
     private final NguoiDung nguoiDung;
-    private String     nhomActive = "";
+
+    /** ID nhóm đang được chọn (−1 = chưa chọn nhóm nào) */
+    private int    nhomActiveId   = -1;
+    /** Tên nhóm đang được chọn */
+    private String nhomActiveTen  = "";
+
     private JPanel     pnlCenter;
     private CardLayout cardCenter;
+
+    /** Panel chứa danh sách NhomItem bên trái */
     private JPanel     pnlNhomList;
+
+    /** Cờ đánh dấu list đang ở trạng thái rỗng (hiển thị placeholder) */
+    private boolean    listIsEmpty = true;
+
     private JWindow    popupTK;
     private boolean    popupVisible = false;
+
+    /** Panel bảng tin */
     private JPanel pnlFeed;
     private JLabel lblEmptyFeed;
+    private boolean feedIsEmpty = true;
+
+    /** Panel NhomChat – được tái sử dụng, chỉ reload nội dung khi đổi nhóm */
     private NhomChatPanel nhomChatPanel;
+
+    /** Header title trong tab NHOM_CHAT – cần cập nhật khi đổi nhóm */
+    private JLabel lblNhomChatTitle;
+
     // ── Constructor ───────────────────────────────────────────
     public ManHinhChinh(NguoiDung nguoiDung) {
         this.nguoiDung = nguoiDung;
@@ -106,7 +126,6 @@ public class ManHinhChinh extends JFrame {
         top.setLayout(new BoxLayout(top, BoxLayout.Y_AXIS));
         top.setBorder(new EmptyBorder(12, 0, 0, 0));
 
-        // Avatar button
         JButton btnAvatar = buildAvatarBtn();
         btnAvatar.addMouseListener(new MouseAdapter() {
             public void mouseClicked(MouseEvent e) { togglePopupTK(); }
@@ -144,7 +163,6 @@ public class ManHinhChinh extends JFrame {
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 if (hov) { g2.setColor(ACCENT_LIGHT); g2.fillOval(4, 4, 34, 34); }
 
-                // Ảnh đại diện hoặc chữ cái đầu
                 if (nguoiDung != null && nguoiDung.getAnhDaiDien() != null) {
                     g2.setClip(new Ellipse2D.Float(8, 8, 30, 30));
                     g2.drawImage(nguoiDung.getAnhDaiDien()
@@ -204,11 +222,10 @@ public class ManHinhChinh extends JFrame {
     // MAIN AREA
     // ══════════════════════════════════════════════════════════
     private JPanel buildMainArea() {
-    	
         JPanel main = new JPanel(new BorderLayout());
         main.setOpaque(false);
         main.add(buildListPanel(), BorderLayout.WEST);
-        
+
         cardCenter = new CardLayout();
         pnlCenter  = new JPanel(cardCenter) {
             @Override protected void paintComponent(Graphics g) {
@@ -253,10 +270,16 @@ public class ManHinhChinh extends JFrame {
         txtSearch.setBorder(new EmptyBorder(7, 14, 7, 14));
         txtSearch.addFocusListener(new FocusAdapter() {
             public void focusGained(FocusEvent e) {
-                if (txtSearch.getText().equals("Tìm kiếm...")) { txtSearch.setText(""); txtSearch.setForeground(LABEL_FG); }
+                if (txtSearch.getText().equals("Tìm kiếm...")) {
+                    txtSearch.setText("");
+                    txtSearch.setForeground(LABEL_FG);
+                }
             }
             public void focusLost(FocusEvent e) {
-                if (txtSearch.getText().isEmpty()) { txtSearch.setText("Tìm kiếm..."); txtSearch.setForeground(HINT_FG); }
+                if (txtSearch.getText().isEmpty()) {
+                    txtSearch.setText("Tìm kiếm...");
+                    txtSearch.setForeground(HINT_FG);
+                }
             }
         });
         searchWrap.add(txtSearch);
@@ -266,7 +289,7 @@ public class ManHinhChinh extends JFrame {
         pnlNhomList.setOpaque(false);
         pnlNhomList.setLayout(new BoxLayout(pnlNhomList, BoxLayout.Y_AXIS));
         pnlNhomList.setBorder(new EmptyBorder(8, 8, 8, 8));
-        showEmptyState();
+        showEmptyNhomState();
 
         JScrollPane scroll = new JScrollPane(pnlNhomList);
         scroll.setOpaque(false);
@@ -276,8 +299,10 @@ public class ManHinhChinh extends JFrame {
         return panel;
     }
 
-    private void showEmptyState() {
+    /** Hiển thị placeholder khi chưa có nhóm nào */
+    private void showEmptyNhomState() {
         pnlNhomList.removeAll();
+        listIsEmpty = true;
         JLabel empty = new JLabel("Chưa có nhóm nào", SwingConstants.CENTER);
         empty.setFont(F_BODY);
         empty.setForeground(HINT_FG);
@@ -304,11 +329,8 @@ public class ManHinhChinh extends JFrame {
                 new MatteBorder(0, 1, 0, 0, DIVIDER_CLR),
                 new EmptyBorder(20, 14, 20, 14)));
 
-        // ── Tạo nhóm
-        panel.add(buildRightBtn("Tạo nhóm", true, e -> moTaoNhom()));
+        panel.add(buildRightBtn("Tạo nhóm",     true,  e -> moTaoNhom()));
         panel.add(Box.createVerticalStrut(10));
-
-        // ── Tham gia nhóm
         panel.add(buildRightBtn("Tham gia nhóm", false, e -> moThamGiaNhom()));
         panel.add(Box.createVerticalStrut(20));
 
@@ -318,12 +340,9 @@ public class ManHinhChinh extends JFrame {
         panel.add(sep);
         panel.add(Box.createVerticalStrut(20));
 
-        // ── Lịch
         panel.add(buildRightBtn("Lịch của bạn", false, e -> showContent("LICH")));
         panel.add(Box.createVerticalStrut(10));
-
-        // ── Tài liệu
-        panel.add(buildRightBtn("Tài liệu", false, e -> showContent("TAI_LIEU")));
+        panel.add(buildRightBtn("Tài liệu",     false, e -> showContent("TAI_LIEU")));
         panel.add(Box.createVerticalGlue());
         return panel;
     }
@@ -356,50 +375,64 @@ public class ManHinhChinh extends JFrame {
         p.add(scroll, BorderLayout.CENTER);
         return p;
     }
-    
-    public void themHoatDong(String text) {
-        // Xóa trạng thái rỗng nếu có
-        if (pnlFeed.getComponentCount() == 3 && lblEmptyFeed != null) {
-            pnlFeed.removeAll();
-        }
 
+    /** Thêm một dòng hoạt động lên đầu bảng tin */
+    public void themHoatDong(String text) {
+        if (feedIsEmpty) {
+            pnlFeed.removeAll();
+            feedIsEmpty = false;
+        }
         JLabel item = new JLabel("• " + text);
         item.setFont(F_BODY);
         item.setForeground(LABEL_FG);
         item.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        pnlFeed.add(item, 0); // thêm lên đầu
+        pnlFeed.add(item, 0);
         pnlFeed.revalidate();
         pnlFeed.repaint();
     }
-    
-    
+
+    /**
+     * Xây dựng panel NHOM_CHAT.
+     * NhomChatPanel được tạo một lần; nội dung thay đổi qua loadNhom().
+     */
     private JPanel buildNhomChatPanel() {
         JPanel p = new JPanel(new BorderLayout());
         p.setOpaque(false);
 
+        // ── Header (title + tab bar) ──
         JPanel top = new JPanel(new BorderLayout());
         top.setOpaque(false);
-        top.add(buildContentHeader(
-            nhomActive.isEmpty() ? "Chat nhóm" : nhomActive, ""
-        ), BorderLayout.NORTH);
-        top.add(buildNhomTabBar(), BorderLayout.SOUTH);
 
+        lblNhomChatTitle = new JLabel("Chọn một nhóm để bắt đầu");
+        lblNhomChatTitle.setFont(new Font("Segoe UI", Font.BOLD, 17));
+        lblNhomChatTitle.setForeground(LABEL_FG);
+
+        JPanel headerWrap = new JPanel(new BorderLayout());
+        headerWrap.setOpaque(false);
+        headerWrap.setBorder(new CompoundBorder(
+                new MatteBorder(0, 0, 1, 0, DIVIDER_CLR),
+                new EmptyBorder(18, 24, 14, 24)));
+        headerWrap.add(lblNhomChatTitle, BorderLayout.WEST);
+        top.add(headerWrap,         BorderLayout.NORTH);
+        top.add(buildNhomTabBar(),  BorderLayout.SOUTH);
         p.add(top, BorderLayout.NORTH);
 
-        // 🔥 THAY ĐOẠN NÀY
-        nhomChatPanel = new NhomChatPanel(0,
-            nguoiDung != null ? nguoiDung.getTenDangNhap() : "User");
+        // ── Chat panel ──
+        // Khởi tạo với nhomId = -1 (chưa chọn nhóm)
+        nhomChatPanel = new NhomChatPanel(-1,
+                nguoiDung != null ? nguoiDung.getTenDangNhap() : "User");
 
-        // callback gửi tin
         nhomChatPanel.setGuiTinListener((nhomId, noiDung) -> {
-            System.out.println("Gửi: " + noiDung);
+            // TODO: gửi lên server / DB
+            System.out.println("[Chat nhomId=" + nhomId + "] " + noiDung);
 
-            // TODO: gửi lên server hoặc DB
+            // Đẩy nhóm này lên đầu danh sách khi có tin mới
+            if (nhomId >= 0 && !nhomActiveTen.isEmpty()) {
+                SwingUtilities.invokeLater(() -> duaNhomLenDau(nhomActiveTen));
+            }
         });
 
         p.add(nhomChatPanel, BorderLayout.CENTER);
-
         return p;
     }
 
@@ -408,13 +441,12 @@ public class ManHinhChinh extends JFrame {
         p.setOpaque(false);
         p.add(buildContentHeader("Quản lý tài khoản", "Thông tin & bảo mật"), BorderLayout.NORTH);
 
-        // Nhúng ThongTinCaNhanUI vào đây
         ThongTinCaNhanUI ttcn = new ThongTinCaNhanUI(nguoiDung);
-        ttcn.btnQuanLyTK.setVisible(false); // ẩn nút thừa
+        ttcn.btnQuanLyTK.setVisible(false);
         ttcn.btnCapNhat.addActionListener(e ->
-            JOptionPane.showMessageDialog(this,
-                "Cập nhật thông tin thành công!", "Thông báo",
-                JOptionPane.INFORMATION_MESSAGE));
+                JOptionPane.showMessageDialog(this,
+                        "Cập nhật thông tin thành công!", "Thông báo",
+                        JOptionPane.INFORMATION_MESSAGE));
         p.add(ttcn, BorderLayout.CENTER);
         return p;
     }
@@ -453,7 +485,6 @@ public class ManHinhChinh extends JFrame {
         pop.setLayout(new BoxLayout(pop, BoxLayout.Y_AXIS));
         pop.setBorder(new EmptyBorder(12, 0, 12, 0));
 
-        // Tên người dùng
         JLabel lblUser = new JLabel("  " + (nguoiDung != null ? nguoiDung.getTenDangNhap() : "Người dùng"));
         lblUser.setFont(new Font("Segoe UI", Font.BOLD, 14));
         lblUser.setForeground(LABEL_FG);
@@ -471,7 +502,6 @@ public class ManHinhChinh extends JFrame {
         pop.add(buildPopupItem("Đổi mật khẩu", e -> {
             popupTK.setVisible(false);
             popupVisible = false;
-            // Mở QuenMKUI để đặt lại mật khẩu
             QuenMKUI quenView = new QuenMKUI();
             new QuenMKController(quenView, null);
             quenView.setVisible(true);
@@ -479,7 +509,6 @@ public class ManHinhChinh extends JFrame {
         pop.add(Box.createVerticalStrut(4));
         addSep(pop);
         pop.add(Box.createVerticalStrut(4));
-
         pop.add(buildPopupItemDanger("Đăng xuất", e -> dangXuat()));
 
         popupTK.setContentPane(pop);
@@ -504,55 +533,126 @@ public class ManHinhChinh extends JFrame {
         cardCenter.show(pnlCenter, key);
     }
 
-    /** Chọn nhóm từ danh sách → chuyển sang tab chat */
-    public void chonNhom(String ten) {
-        nhomActive = ten;
-
-        nhomChatPanel.clearChat();
-
-        // ví dụ test
-        nhomChatPanel.nhanTinNhan("Nguyễn A", "Hello bro");
-        nhomChatPanel.nhanTinNhan(nguoiDung.getTenDangNhap(), "Hi");
-
-        showContent("NHOM_CHAT");
-    }
-    
-    /** Thêm nhóm vào danh sách bên trái */
-    public void themNhomVaoList(String ten, String sub, String time) {
-        // Xóa trạng thái rỗng
-        if (pnlNhomList.getComponentCount() == 2
-                && pnlNhomList.getComponent(1) instanceof JLabel) {
-            pnlNhomList.removeAll();
+    /**
+     * Chọn nhóm từ danh sách → cập nhật header, load chat, chuyển tab.
+     *
+     * @param nhomId  ID nhóm trong DB (≥ 0)
+     * @param ten     Tên nhóm hiển thị
+     */
+    public void chonNhom(int nhomId, String ten) {
+        // Không reload nếu đã đang xem nhóm này
+        if (nhomId == nhomActiveId) {
+            showContent("NHOM_CHAT");
+            return;
         }
 
-        NhomItem item = new NhomItem(ten, sub, time, false);
+        nhomActiveId  = nhomId;
+        nhomActiveTen = ten;
+
+        // Cập nhật header title
+        if (lblNhomChatTitle != null) {
+            lblNhomChatTitle.setText(ten);
+        }
+
+        // Tải nội dung chat của nhóm mới
+        nhomChatPanel.loadNhom(nhomId, ten);
+
+        // Đánh dấu item active trong danh sách
+        capNhatActiveItem(nhomId);
+
+        // Chuyển sang tab chat
+        showContent("NHOM_CHAT");
+    }
+
+    /**
+     * Đánh dấu NhomItem đang active, bỏ active các item còn lại.
+     */
+    private void capNhatActiveItem(int nhomId) {
+        for (Component c : pnlNhomList.getComponents()) {
+            if (c instanceof NhomItem) {
+                NhomItem item = (NhomItem) c;
+                item.setActive(item.getNhomId() == nhomId);
+            }
+        }
+    }
+
+    /**
+     * Thêm một nhóm mới vào danh sách bên trái.
+     *
+     * @param nhomId  ID nhóm trong DB
+     * @param ten     Tên nhóm
+     * @param sub     Dòng phụ (tin nhắn cuối / trạng thái)
+     * @param time    Thời gian tin nhắn cuối
+     */
+    public void themNhomVaoList(int nhomId, String ten, String sub, String time) {
+        // Xóa placeholder rỗng lần đầu
+        if (listIsEmpty) {
+            pnlNhomList.removeAll();
+            listIsEmpty = false;
+        }
+
+        // Kiểm tra tránh thêm trùng
+        for (Component c : pnlNhomList.getComponents()) {
+            if (c instanceof NhomItem && ((NhomItem) c).getNhomId() == nhomId) return;
+        }
+
+        NhomItem item = new NhomItem(nhomId, ten, sub, time, false);
         item.addMouseListener(new MouseAdapter() {
-            public void mouseClicked(MouseEvent e) { chonNhom(ten); }
+            public void mouseClicked(MouseEvent e) { chonNhom(nhomId, ten); }
         });
 
-        pnlNhomList.add(item, 0);                 // 🔥 thêm lên đầu
+        // Thêm lên đầu danh sách
+        pnlNhomList.add(item, 0);
         pnlNhomList.add(Box.createVerticalStrut(4), 1);
 
         pnlNhomList.revalidate();
         pnlNhomList.repaint();
     }
 
+    /**
+     * Đẩy một nhóm (theo tên) lên đầu danh sách khi có tin nhắn mới.
+     * Cập nhật sub-text và timestamp.
+     */
     public void duaNhomLenDau(String ten) {
+        duaNhomLenDauVoiTin(ten, null, "Vừa xong");
+    }
+
+    /**
+     * Đẩy nhóm lên đầu và cập nhật preview tin nhắn cuối.
+     */
+    public void duaNhomLenDauVoiTin(String ten, String tinMoi, String time) {
+        Component found = null;
+        int foundIdx = -1;
         Component[] comps = pnlNhomList.getComponents();
 
-        for (Component c : comps) {
-            if (c instanceof NhomItem) {
-                NhomItem item = (NhomItem) c;
+        for (int i = 0; i < comps.length; i++) {
+            if (comps[i] instanceof NhomItem) {
+                NhomItem item = (NhomItem) comps[i];
                 if (item.getTen().equals(ten)) {
-                    pnlNhomList.remove(item);
-                    pnlNhomList.add(item, 0);
-                    pnlNhomList.revalidate();
-                    pnlNhomList.repaint();
+                    found    = item;
+                    foundIdx = i;
+                    if (tinMoi != null) item.updateSub(tinMoi, time);
                     break;
                 }
             }
         }
+
+        if (found == null) return;
+
+        // Xóa item và spacer ngay sau nó (nếu có)
+        pnlNhomList.remove(foundIdx);
+        if (foundIdx < pnlNhomList.getComponentCount()
+                && !(pnlNhomList.getComponent(foundIdx) instanceof NhomItem)) {
+            pnlNhomList.remove(foundIdx); // xóa spacer
+        }
+
+        pnlNhomList.add(found, 0);
+        pnlNhomList.add(Box.createVerticalStrut(4), 1);
+
+        pnlNhomList.revalidate();
+        pnlNhomList.repaint();
     }
+
     // ══════════════════════════════════════════════════════════
     // DIALOG OPENERS
     // ══════════════════════════════════════════════════════════
@@ -562,12 +662,19 @@ public class ManHinhChinh extends JFrame {
         dialog.btnTao.addActionListener(e -> {
             String ten = dialog.getTenNhom();
             if (ten.isEmpty()) {
-                JOptionPane.showMessageDialog(dialog, "Vui lòng nhập tên nhóm.", "Thông báo", JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(dialog, "Vui lòng nhập tên nhóm.",
+                        "Thông báo", JOptionPane.WARNING_MESSAGE);
                 return;
             }
             dialog.dispose();
-            themNhomVaoList(ten, "Nhóm mới tạo", "Vừa xong");
-            chonNhom(ten);
+
+            // TODO: lưu vào DB, lấy nhomId thực từ DB
+            // Tạm thời dùng timestamp làm ID giả
+            int nhomId = (int)(System.currentTimeMillis() % Integer.MAX_VALUE);
+
+            themNhomVaoList(nhomId, ten, "Nhóm mới tạo", "Vừa xong");
+            chonNhom(nhomId, ten);
+            themHoatDong("Bạn vừa tạo nhóm \"" + ten + "\"");
         });
         dialog.setVisible(true);
     }
@@ -577,13 +684,14 @@ public class ManHinhChinh extends JFrame {
         dialog.btnGuiYeuCau.addActionListener(e -> {
             String id = dialog.getIdNhom();
             if (id.isEmpty()) {
-                JOptionPane.showMessageDialog(dialog, "Vui lòng nhập ID nhóm.", "Thông báo", JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(dialog, "Vui lòng nhập ID nhóm.",
+                        "Thông báo", JOptionPane.WARNING_MESSAGE);
                 return;
             }
             dialog.dispose();
             JOptionPane.showMessageDialog(this,
-                "Đã gửi yêu cầu tham gia nhóm " + id + ".\nChờ trưởng nhóm phê duyệt.",
-                "Yêu cầu đã gửi", JOptionPane.INFORMATION_MESSAGE);
+                    "Đã gửi yêu cầu tham gia nhóm " + id + ".\nChờ trưởng nhóm phê duyệt.",
+                    "Yêu cầu đã gửi", JOptionPane.INFORMATION_MESSAGE);
         });
         dialog.setVisible(true);
     }
@@ -591,11 +699,9 @@ public class ManHinhChinh extends JFrame {
     /** Mở TaoQuizUI và kết nối nút Kho Quiz → KhoQuizUI */
     public void moTaoQuiz() {
         TaoQuizUI taoQuiz = new TaoQuizUI();
-        // Thêm câu hỏi
         taoQuiz.btnThemCauHoi.addActionListener(e -> {
             String q = taoQuiz.txtQuestion.getText().trim();
             if (q.isEmpty() || q.startsWith("Nhập câu hỏi")) return;
-            // Tìm đáp án đúng
             String dapAnDung = "?";
             for (int i = 0; i < 4; i++) {
                 if (taoQuiz.cmbTrueFalse[i].getSelectedItem().equals("True")) {
@@ -604,21 +710,19 @@ public class ManHinhChinh extends JFrame {
                 }
             }
             taoQuiz.themCauHoiVaoList(q.length() > 40 ? q.substring(0, 40) + "…" : q, dapAnDung);
-            // Reset form
             taoQuiz.txtQuestion.setText("");
             for (int i = 0; i < 4; i++) {
                 taoQuiz.txtOptions[i].setText("");
                 taoQuiz.cmbTrueFalse[i].setSelectedIndex(0);
             }
         });
-        // Mở Kho Quiz
         taoQuiz.btnKhoQuiz.addActionListener(e -> {
             taoQuiz.dispose();
             moKhoQuiz();
         });
         taoQuiz.btnCapNhat.addActionListener(e ->
-            JOptionPane.showMessageDialog(taoQuiz,
-                "Quiz đã lưu thành công!", "Thành công", JOptionPane.INFORMATION_MESSAGE));
+                JOptionPane.showMessageDialog(taoQuiz,
+                        "Quiz đã lưu thành công!", "Thành công", JOptionPane.INFORMATION_MESSAGE));
         taoQuiz.setVisible(true);
     }
 
@@ -637,9 +741,7 @@ public class ManHinhChinh extends JFrame {
 
         kho.btnLamQuiz.addActionListener(e -> {
             int row = kho.tblQuiz.getSelectedRow();
-            String tenQuiz = row >= 0
-                    ? kho.tblQuiz.getValueAt(row, 1).toString()
-                    : "Quiz";
+            String tenQuiz = row >= 0 ? kho.tblQuiz.getValueAt(row, 1).toString() : "Quiz";
             khoFrame.dispose();
             moLamQuiz(tenQuiz);
         });
@@ -647,34 +749,30 @@ public class ManHinhChinh extends JFrame {
         khoFrame.setVisible(true);
     }
 
-    /** Mở LamQuizUI với dữ liệu mẫu → khi nộp bài mở KetQuaQuizUI */
+    /** Mở LamQuizUI với dữ liệu mẫu */
     private void moLamQuiz(String tenQuiz) {
         LamQuizUI lamQuiz = new LamQuizUI();
         lamQuiz.setTenQuiz(tenQuiz);
 
-        // Dữ liệu câu hỏi mẫu
         String[][] cauHoi = {
             {"Java là ngôn ngữ lập trình gì?",
-             "Hướng đối tượng", "Hướng thủ tục", "Script", "Hàm thuần túy", "0"},
+             "Hướng đối tượng","Hướng thủ tục","Script","Hàm thuần túy","0"},
             {"Swing thuộc thư viện nào của Java?",
-             "javax.swing", "java.awt", "java.io", "java.net", "0"},
+             "javax.swing","java.awt","java.io","java.net","0"},
             {"JFrame là lớp dùng để?",
-             "Tạo cửa sổ ứng dụng", "Kết nối CSDL", "Mã hóa dữ liệu", "Gửi email", "0"},
+             "Tạo cửa sổ ứng dụng","Kết nối CSDL","Mã hóa dữ liệu","Gửi email","0"},
         };
         final int[] currentIdx = {0};
         final int[] answers    = new int[cauHoi.length];
         java.util.Arrays.fill(answers, -1);
 
-        // Hiển thị câu đầu tiên
         hienThiCauHoi(lamQuiz, cauHoi, 0, answers);
 
-        // Đếm ngược
-        final int[] giay = {Integer.parseInt(cauHoi.length * 60 + "")};
+        final int[] giay = {cauHoi.length * 60};
         javax.swing.Timer countdown = new javax.swing.Timer(1000, null);
         countdown.addActionListener(ev -> {
             giay[0]--;
-            int m = giay[0] / 60, s = giay[0] % 60;
-            lamQuiz.lblTimer.setText(String.format("%02d:%02d", m, s));
+            lamQuiz.lblTimer.setText(String.format("%02d:%02d", giay[0] / 60, giay[0] % 60));
             if (giay[0] <= 0) {
                 countdown.stop();
                 moKetQua(lamQuiz, cauHoi, answers, tenQuiz);
@@ -682,7 +780,6 @@ public class ManHinhChinh extends JFrame {
         });
         countdown.start();
 
-        // Câu trước / sau
         lamQuiz.btnCauTruoc.addActionListener(e -> {
             if (currentIdx[0] > 0) {
                 answers[currentIdx[0]] = lamQuiz.getSelectedOption();
@@ -697,11 +794,10 @@ public class ManHinhChinh extends JFrame {
                 hienThiCauHoi(lamQuiz, cauHoi, currentIdx[0], answers);
             }
         });
-
         lamQuiz.btnNopBai.addActionListener(e -> {
             int confirm = JOptionPane.showConfirmDialog(lamQuiz,
-                "Bạn có chắc muốn nộp bài?", "Xác nhận nộp bài",
-                JOptionPane.YES_NO_OPTION);
+                    "Bạn có chắc muốn nộp bài?", "Xác nhận nộp bài",
+                    JOptionPane.YES_NO_OPTION);
             if (confirm == JOptionPane.YES_OPTION) {
                 countdown.stop();
                 answers[currentIdx[0]] = lamQuiz.getSelectedOption();
@@ -714,42 +810,28 @@ public class ManHinhChinh extends JFrame {
 
     private void hienThiCauHoi(LamQuizUI ui, String[][] cauHoi, int idx, int[] answers) {
         String[] data = cauHoi[idx];
-        String[] opts = {data[1], data[2], data[3], data[4]};
-        ui.hienThiCauHoi(idx + 1, cauHoi.length, data[0], opts);
-        // Khôi phục đáp án đã chọn nếu có (bằng cách click lại)
-        if (answers[idx] >= 0) {
-            ui.btnOptions[answers[idx]].doClick();
-        }
+        ui.hienThiCauHoi(idx + 1, cauHoi.length, data[0],
+                new String[]{data[1], data[2], data[3], data[4]});
+        if (answers[idx] >= 0) ui.btnOptions[answers[idx]].doClick();
     }
 
     private void moKetQua(LamQuizUI lamQuiz, String[][] cauHoi, int[] answers, String tenQuiz) {
         lamQuiz.dispose();
-
         KetQuaQuizUI kq = new KetQuaQuizUI();
         final int[] showIdx = {0};
 
-        // Tính điểm
         int diem = 0;
-        for (int i = 0; i < cauHoi.length; i++) {
-            int correct = Integer.parseInt(cauHoi[i][5]);
-            if (answers[i] == correct) diem++;
-        }
+        for (int i = 0; i < cauHoi.length; i++)
+            if (answers[i] == Integer.parseInt(cauHoi[i][5])) diem++;
         final int diemFinal = diem;
 
-        // Hiển thị câu đầu tiên
-        hienThiKetQua(kq, cauHoi, answers, showIdx[0], diemFinal);
+        hienThiKetQua(kq, cauHoi, answers, 0, diemFinal);
 
         kq.btnCauTruoc.addActionListener(e -> {
-            if (showIdx[0] > 0) {
-                showIdx[0]--;
-                hienThiKetQua(kq, cauHoi, answers, showIdx[0], diemFinal);
-            }
+            if (showIdx[0] > 0) { showIdx[0]--; hienThiKetQua(kq, cauHoi, answers, showIdx[0], diemFinal); }
         });
         kq.btnCauSau.addActionListener(e -> {
-            if (showIdx[0] < cauHoi.length - 1) {
-                showIdx[0]++;
-                hienThiKetQua(kq, cauHoi, answers, showIdx[0], diemFinal);
-            }
+            if (showIdx[0] < cauHoi.length - 1) { showIdx[0]++; hienThiKetQua(kq, cauHoi, answers, showIdx[0], diemFinal); }
         });
 
         kq.setVisible(true);
@@ -757,10 +839,10 @@ public class ManHinhChinh extends JFrame {
 
     private void hienThiKetQua(KetQuaQuizUI ui, String[][] cauHoi, int[] answers, int idx, int diem) {
         String[] data = cauHoi[idx];
-        String[] opts = {data[1], data[2], data[3], data[4]};
-        int correct = Integer.parseInt(data[5]);
-        ui.hienThiKetQua(idx + 1, cauHoi.length, data[0], opts, correct, answers[idx],
-                         diem + "/" + cauHoi.length);
+        ui.hienThiKetQua(idx + 1, cauHoi.length, data[0],
+                new String[]{data[1], data[2], data[3], data[4]},
+                Integer.parseInt(data[5]), answers[idx],
+                diem + "/" + cauHoi.length);
     }
 
     // ── Đăng xuất ─────────────────────────────────────────────
@@ -813,7 +895,16 @@ public class ManHinhChinh extends JFrame {
             final boolean active = (i == 0);
             JButton b = buildTabChip(tabName, active);
             if (tabName.equals("Quiz")) {
-                b.addActionListener(e -> moTaoQuiz());
+                b.addActionListener(e -> {
+                    // Chỉ mở Quiz nếu đã chọn nhóm
+                    if (nhomActiveId < 0) {
+                        JOptionPane.showMessageDialog(ManHinhChinh.this,
+                                "Vui lòng chọn một nhóm trước.", "Thông báo",
+                                JOptionPane.WARNING_MESSAGE);
+                        return;
+                    }
+                    moTaoQuiz();
+                });
             }
             bar.add(b);
             bar.add(Box.createHorizontalStrut(2));
@@ -839,25 +930,6 @@ public class ManHinhChinh extends JFrame {
         b.setBorder(new EmptyBorder(10, 14, 10, 14));
         b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         return b;
-    }
-    // ── Widget Factories ──────────────────────────────────────
-    private JPanel buildGlassCard() {
-        JPanel c = new JPanel() {
-            @Override protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                Shape s = new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), 14, 14);
-                g2.setColor(new Color(255, 255, 255, 210));
-                g2.fill(s);
-                g2.setColor(new Color(220, 228, 245));
-                g2.setStroke(new BasicStroke(0.8f));
-                g2.draw(s);
-                g2.dispose();
-                super.paintComponent(g);
-            }
-        };
-        c.setOpaque(false);
-        return c;
     }
 
     private JButton buildRightBtn(String text, boolean primary, ActionListener action) {
@@ -924,30 +996,6 @@ public class ManHinhChinh extends JFrame {
         return b;
     }
 
-    private JButton buildAccentBtn(String text) {
-        JButton b = new JButton(text) {
-            boolean hov;
-            { addMouseListener(new MouseAdapter() {
-                public void mouseEntered(MouseEvent e) { hov = true;  repaint(); }
-                public void mouseExited (MouseEvent e) { hov = false; repaint(); }
-            }); }
-            @Override protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setPaint(new GradientPaint(0, 0, hov ? new Color(0x4A7EE8) : ACCENT,
-                                              getWidth(), getHeight(), ACCENT_DARK));
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
-                g2.dispose();
-                super.paintComponent(g);
-            }
-        };
-        b.setFont(F_BOLD); b.setForeground(Color.WHITE);
-        b.setContentAreaFilled(false); b.setBorderPainted(false); b.setFocusPainted(false);
-        b.setBorder(new EmptyBorder(8, 18, 8, 18));
-        b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        return b;
-    }
-
     private void addSep(JPanel p) {
         JSeparator s = new JSeparator();
         s.setForeground(DIVIDER_CLR);
@@ -969,13 +1017,17 @@ public class ManHinhChinh extends JFrame {
     }
 
     // ══════════════════════════════════════════════════════════
-    // INNER: NhomItem
+    // INNER CLASS: NhomItem
     // ══════════════════════════════════════════════════════════
     public static class NhomItem extends JPanel {
         private boolean active, hov;
+        private final int    nhomId;
         private final String ten;
+        private JLabel       lblSub;
+        private JLabel       lblTime;
 
-        NhomItem(String ten, String sub, String time, boolean isActive) {
+        NhomItem(int nhomId, String ten, String sub, String time, boolean isActive) {
+            this.nhomId = nhomId;
             this.ten    = ten;
             this.active = isActive;
             setOpaque(false);
@@ -989,7 +1041,7 @@ public class ManHinhChinh extends JFrame {
                 public void mouseExited (MouseEvent e) { hov = false; repaint(); }
             });
 
-            // Avatar nhóm (chữ cái cuối tên)
+            // Avatar nhóm (chữ cái đầu tên)
             JPanel av = new JPanel() {
                 @Override protected void paintComponent(Graphics g) {
                     Graphics2D g2 = (Graphics2D) g.create();
@@ -1001,7 +1053,8 @@ public class ManHinhChinh extends JFrame {
                     g2.setColor(Color.WHITE);
                     g2.setFont(new Font("Segoe UI", Font.BOLD, 15));
                     FontMetrics fm = g2.getFontMetrics();
-                    String ch = ten.substring(ten.length() - 1);
+                    // Dùng chữ cái ĐẦU (thay vì cuối) để đúng convention hơn
+                    String ch = ten.isEmpty() ? "?" : ten.substring(0, 1).toUpperCase();
                     g2.drawString(ch, 19 - fm.stringWidth(ch) / 2, 19 + fm.getAscent() / 2 - 2);
                     g2.dispose();
                 }
@@ -1012,28 +1065,43 @@ public class ManHinhChinh extends JFrame {
             JPanel info = new JPanel();
             info.setOpaque(false);
             info.setLayout(new BoxLayout(info, BoxLayout.Y_AXIS));
+
             JLabel ln = new JLabel(ten);
             ln.setFont(active ? F_BOLD : F_BODY);
             ln.setForeground(active ? ACCENT : LABEL_FG);
-            JLabel ls = new JLabel(sub);
-            ls.setFont(F_SMALL);
-            ls.setForeground(HINT_FG);
+
+            lblSub = new JLabel(sub);
+            lblSub.setFont(F_SMALL);
+            lblSub.setForeground(HINT_FG);
+
             info.add(ln);
             info.add(Box.createVerticalStrut(3));
-            info.add(ls);
+            info.add(lblSub);
 
-            JLabel lt = new JLabel(time);
-            lt.setFont(F_SMALL);
-            lt.setForeground(HINT_FG);
-            lt.setVerticalAlignment(SwingConstants.TOP);
+            lblTime = new JLabel(time);
+            lblTime.setFont(F_SMALL);
+            lblTime.setForeground(HINT_FG);
+            lblTime.setVerticalAlignment(SwingConstants.TOP);
 
-            add(av,   BorderLayout.WEST);
-            add(info, BorderLayout.CENTER);
-            add(lt,   BorderLayout.EAST);
+            add(av,      BorderLayout.WEST);
+            add(info,    BorderLayout.CENTER);
+            add(lblTime, BorderLayout.EAST);
         }
 
-        public String getTen()          { return ten; }
-        public void   setActive(boolean a) { this.active = a; repaint(); }
+        public int    getNhomId() { return nhomId; }
+        public String getTen()   { return ten; }
+
+        public void setActive(boolean a) {
+            this.active = a;
+            repaint();
+        }
+
+        /** Cập nhật dòng preview tin nhắn cuối */
+        public void updateSub(String sub, String time) {
+            lblSub.setText(sub);
+            lblTime.setText(time);
+            repaint();
+        }
 
         @Override protected void paintComponent(Graphics g) {
             Graphics2D g2 = (Graphics2D) g.create();
@@ -1052,5 +1120,4 @@ public class ManHinhChinh extends JFrame {
             super.paintComponent(g);
         }
     }
-
 }
