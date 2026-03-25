@@ -175,11 +175,23 @@ public class NhomChatPanel extends JPanel {
      * Controller gọi khi nhận được tin nhắn mới
      * (từ DB khi load lịch sử, hoặc từ polling server)
      */
-    public void nhanTinNhan(String nguoi, String noiDung) {
-        String gio = LocalTime.now().format(TIME_FMT);
-        lichSuTinNhan.add(new String[]{nguoi, noiDung, gio});
-        boolean mine = nguoi.equals(tenNguoiDung);
-        themBubble(nguoi, noiDung, gio, mine);
+    public void nhanTinNhan(TinNhan t, int currentUserId) {
+        String gio = t.getThoiGianStr(); // ✅ lấy từ DB
+
+        boolean mine = t.getNguoiGuiId() == currentUserId; // ✅ chuẩn
+
+        lichSuTinNhan.add(new String[]{
+            t.getTenNguoiGui(),
+            t.getNoiDung(),
+            gio
+        });
+
+        themBubble(
+            t.getTenNguoiGui(),
+            t.getNoiDung(),
+            gio,
+            mine
+        );
     }
 
     /**
@@ -214,10 +226,8 @@ public class NhomChatPanel extends JPanel {
         txtInput.setText("");
         txtInput.setForeground(LABEL_FG);
 
-        // Hiển thị ngay trên UI (optimistic update)
-        nhanTinNhan(tenNguoiDung, text);
 
-        // Báo cho Controller gửi lên DB
+        // Gửi cho Controller xử lý
         if (guiTinListener != null) {
             guiTinListener.onGuiTin(nhomId, text);
         }
