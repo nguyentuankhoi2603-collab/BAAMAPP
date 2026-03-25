@@ -238,8 +238,13 @@ public class ManHinhChinh extends JFrame {
         // Đăng ký các panel nội dung
         pnlCenter.add(buildBangTinPanel(),   "BANG_TIN");
         pnlCenter.add(buildNhomChatPanel(),  "NHOM_CHAT");
-        pnlCenter.add(new LichUI(),          "LICH");
-        pnlCenter.add(new TaiLieuUI(),       "TAI_LIEU");
+        LichUI lichUI = new LichUI();
+        new LichController(lichUI, nguoiDung);
+        pnlCenter.add(lichUI, "LICH");
+
+        TaiLieuUI taiLieuUI = new TaiLieuUI();
+        new TaiLieuController(taiLieuUI);
+        pnlCenter.add(taiLieuUI, "TAI_LIEU");
         pnlCenter.add(buildQuanLyTKPanel(),  "QUAN_LY_TK");
 
         main.add(pnlCenter, BorderLayout.CENTER);
