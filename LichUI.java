@@ -8,6 +8,7 @@ import java.util.List;
 import javax.swing.*;
 import javax.swing.border.*;
 
+
 /**
  * LichUI – Màn hình Lịch (refactored).
  * Layout: Lịch tháng (trái) + Danh sách sự kiện (phải)
@@ -33,7 +34,7 @@ public class LichUI extends JPanel {
     private static final Font F_LABEL   = new Font("Segoe UI", Font.BOLD,  10);
     private static final Font F_CAL_DAY = new Font("Segoe UI", Font.PLAIN, 12);
     private static final Font F_CAL_HDR = new Font("Segoe UI", Font.BOLD,  11);
-
+    private Map<Integer, List<LichController.SuKien>> eventsByDay = new HashMap<>();
     // ── Widgets công khai ─────────────────────────────────────
     public JButton btnThemSuKien;
     public JButton btnThangTruoc;
@@ -140,6 +141,7 @@ public class LichUI extends JPanel {
         p.add(calContainer, BorderLayout.CENTER);
         return p;
     }
+    
 
     private void fillCalGrid() {
         calGrid.removeAll();
@@ -160,12 +162,18 @@ public class LichUI extends JPanel {
             final int day = d;
             boolean isToday = (d == today);
             boolean isSel   = (d == selectedDay);
+            
             JPanel dayCell = new JPanel(new BorderLayout()) {
                 boolean hov;
                 { addMouseListener(new MouseAdapter() {
                     public void mouseEntered(MouseEvent e){hov=true;repaint();}
                     public void mouseExited(MouseEvent e){hov=false;repaint();}
-                    public void mouseClicked(MouseEvent e){selectedDay=day;refreshCal();}
+                    public void mouseClicked(MouseEvent e){
+                        selectedDay=day;
+                        refreshCal();
+                        // ← Hiển thị thông tin sự kiện khi bấm
+                        showEventInfo(day);
+                    }
                 }); }
                 @Override protected void paintComponent(Graphics g) {
                     Graphics2D g2=(Graphics2D)g.create();
@@ -175,6 +183,16 @@ public class LichUI extends JPanel {
                     else if (hov) g2.setColor(new Color(240, 245, 255));
                     else            g2.setColor(BG_WHITE);
                     g2.fillRoundRect(0,0,getWidth(),getHeight(),8,8);
+                    
+                    // ✓ Vẽ dấu chấm nếu có sự kiện
+                    if (eventsByDay.containsKey(day) && !eventsByDay.get(day).isEmpty()) {
+                        g2.setColor(ACCENT);
+                        int dotRadius = 3;
+                        int x = getWidth() / 2 - dotRadius;
+                        int y = getHeight() - 8;
+                        g2.fillOval(x, y, dotRadius * 2, dotRadius * 2);
+                    }
+                    
                     g2.dispose(); super.paintComponent(g);
                 }
             };
@@ -184,12 +202,46 @@ public class LichUI extends JPanel {
             lbl.setFont(F_CAL_DAY);
             lbl.setForeground(isToday ? Color.WHITE : TEXT_DARK);
             dayCell.add(lbl, BorderLayout.CENTER);
-            // ✓ XÓA: Hardcoded dots (d == 15 || d == 20 || d == 25)
-            // Dots sẽ được thêm động khi có sự kiện
             calGrid.add(dayCell); cell++;
         }
         while (cell < 42) { calGrid.add(new JLabel("")); cell++; }
         calGrid.revalidate(); calGrid.repaint();
+    }
+    
+    /**
+     * ✓ Hiển thị thông tin sự kiện khi bấm vào ô lịch
+     */
+    public void showEventInfo(int day) {
+        List<LichController.SuKien> events = eventsByDay.getOrDefault(day, new ArrayList<>());
+        
+        if (events.isEmpty()) {
+            JOptionPane.showMessageDialog(this,
+                "Không có sự kiện nào vào ngày " + day,
+                "Thông tin ngày",
+                JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        
+        StringBuilder msg = new StringBuilder();
+        msg.append("Sự kiện ngày ").append(day).append(":\n\n");
+        for (LichController.SuKien sk : events) {
+            msg.append("📌 ").append(sk.tieuDe).append("\n");
+            msg.append("   Giờ: ").append(sk.gioBatDau).append(" - ").append(sk.gioKetThuc).append("\n");
+            msg.append("   Loại: ").append(sk.loai).append("\n");
+            msg.append("   Từ: ").append(sk.isPersonal ? "Cá nhân" : sk.tenNhom).append("\n\n");
+        }
+        
+        JOptionPane.showMessageDialog(this,
+            msg.toString(),
+            "Chi tiết sự kiện",
+            JOptionPane.INFORMATION_MESSAGE);
+    }
+    /**
+     * ✓ Cập nhật danh sách sự kiện theo ngày (gọi từ Controller)
+     */
+    public void setEventsByDay(Map<Integer, List<LichController.SuKien>> events) {
+        this.eventsByDay = events;
+        refreshCal();  // ← Vẽ lại lịch với dots
     }
 
     private void refreshCal() {
