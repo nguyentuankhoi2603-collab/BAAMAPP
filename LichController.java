@@ -54,13 +54,14 @@ public class LichController {
     private void moDialogThemSuKien() {
         Frame owner = (Frame) SwingUtilities.getWindowAncestor(view);
         ThemSuKienDialog dialog = new ThemSuKienDialog(owner);
-        dialog.setVisible(true);                // blocking
+        dialog.setVisible(true);
 
         if (dialog.isConfirmed()) {
             SuKien sk = dialog.getSuKien();
             suKienList.add(sk);
             hienThiThanhCong(sk);
-            view.refreshEventList(suKienList);  // ← CẬP NHẬT UI
+            view.refreshEventList(suKienList);
+            view.setEventsByDay(buildEventsByDay());  // ← Thêm dòng này
         }
     }
 
@@ -113,6 +114,21 @@ public class LichController {
     // ══════════════════════════════════════════════════════════
     // INNER DIALOG – Thêm sự kiện
     // ══════════════════════════════════════════════════════════
+    
+    private Map<Integer, List<SuKien>> buildEventsByDay() {
+        Map<Integer, List<SuKien>> map = new HashMap<>();
+        for (SuKien sk : suKienList) {  // ← Lúc này suKienList sẽ được nhận diện
+            try {
+                String[] parts = sk.ngay.split("/");
+                int day = Integer.parseInt(parts[0]);
+                map.computeIfAbsent(day, k -> new ArrayList<>()).add(sk);
+            } catch (Exception e) {
+                // bỏ qua
+            }
+        }
+        return map;
+    }
+    
     private static class ThemSuKienDialog extends JDialog {
 
         private boolean confirmed = false;
@@ -433,7 +449,7 @@ public class LichController {
             }
             return f;
         }
-
+       
         private JButton accentBtn(String text) {
             JButton b = new JButton(text) {
                 boolean hov;
